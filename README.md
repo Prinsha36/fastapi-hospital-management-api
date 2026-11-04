@@ -11,10 +11,11 @@ A REST API for managing hospital data: departments, doctors, patients and appoin
   - A doctor can't be double-booked at the same time
   - Appointments can't be booked in the past
   - Cancelling an appointment frees the time slot
+- **Staff login with JWT**: reading is open, changing data needs a login, deleting needs an admin
 - **Pagination** on every list endpoint (`?limit=20&offset=0`)
 - **Clear error messages**, for example `409 Department 'Cardiology' already exists`
 - **Automatic API docs** with Swagger UI
-- **33 automated tests** with pytest
+- **45 automated tests** with pytest
 
 ## Tech Stack
 
@@ -24,6 +25,8 @@ A REST API for managing hospital data: departments, doctors, patients and appoin
 | [PostgreSQL](https://www.postgresql.org/) | Database |
 | [asyncpg](https://github.com/MagicStack/asyncpg) | Async PostgreSQL driver |
 | [Pydantic](https://docs.pydantic.dev/) | Request validation |
+| [PyJWT](https://pyjwt.readthedocs.io/) | Login tokens |
+| [pwdlib](https://github.com/frankie567/pwdlib) | Password hashing (Argon2) |
 | [pytest](https://docs.pytest.org/) | Testing |
 
 ## Project Structure
@@ -34,7 +37,11 @@ A REST API for managing hospital data: departments, doctors, patients and appoin
 │   ├── main.py              # App setup, startup/shutdown, router registration
 │   ├── database.py          # PostgreSQL connection pool
 │   ├── schema.sql           # Tables and sample data
+│   ├── core/
+│   │   ├── security.py      # Password hashing and JWT tokens
+│   │   └── auth.py          # Login checks used by protected routes
 │   ├── routes/              # HTTP endpoints (status codes, errors)
+│   │   ├── auth.py
 │   │   ├── departments.py
 │   │   ├── doctors.py
 │   │   ├── patients.py
@@ -84,10 +91,18 @@ createdb hospital_db
 cp .env.example .env
 ```
 
-Edit `.env` and put in your PostgreSQL username and password:
+Edit `.env` and fill in your PostgreSQL username and password, plus a secret key for login tokens:
 
 ```
 DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/hospital_db
+SECRET_KEY=your-long-random-secret
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+```
+
+Generate a secret key with:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
 ### 5. Create the tables and sample data
@@ -106,6 +121,47 @@ uvicorn app.main:app --reload
 
 Open **http://127.0.0.1:8000/docs** to see and try every endpoint.
 
+### 7. Create the first admin account
+
+The first account can be created without logging in, and it automatically becomes an **admin**:
+
+```json
+POST /auth/register
+{
+  "username": "admin",
+  "password": "choose-a-strong-password",
+  "full_name": "Hospital Admin"
+}
+```
+
+After that, only a logged-in admin can create more accounts.
+
+## Authentication
+
+| Action | Who can do it |
+|---|---|
+| `GET` (read data) | Anyone |
+| `POST`, `PUT`, `PATCH` (create and edit) | Any logged-in user (staff or admin) |
+| `DELETE` | Admins only |
+| Create or delete user accounts | Admins only |
+
+**Log in in Swagger:** open `/docs`, click **Authorize** at the top right, enter your username and password, and click **Authorize**. Swagger then sends your token with every request.
+
+**Log in with curl:**
+
+```bash
+curl -X POST http://127.0.0.1:8000/auth/login \
+  -d "username=admin&password=choose-a-strong-password"
+# → {"access_token": "eyJhbGciOi...", "token_type": "bearer"}
+
+curl -X POST http://127.0.0.1:8000/patients/ \
+  -H "Authorization: Bearer eyJhbGciOi..." \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Bishal Lama"}'
+```
+
+Tokens expire after `ACCESS_TOKEN_EXPIRE_MINUTES` (60 by default). Log in again to get a new one.
+
 ## API Endpoints
 
 ### General
@@ -114,6 +170,16 @@ Open **http://127.0.0.1:8000/docs** to see and try every endpoint.
 |---|---|---|
 | GET | `/` | Welcome message |
 | GET | `/health` | Checks the database connection |
+
+### Auth
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/auth/register` | Create a user (first user is free and becomes admin; then admins only) |
+| POST | `/auth/login` | Log in with username and password, returns a token |
+| GET | `/auth/me` | Show the logged-in user |
+| GET | `/auth/users` | List users (admins only) |
+| DELETE | `/auth/users/{id}` | Delete a user (admins only) |
 
 ### Departments
 
@@ -250,6 +316,6 @@ TEST_DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/hospital_test
 
 ## Roadmap
 
-- [ ] Staff login with JWT authentication
+- [x] Staff login with JWT authentication
 - [ ] Response models for cleaner API docs
 - [ ] Stricter validation (phone, email, blood group)

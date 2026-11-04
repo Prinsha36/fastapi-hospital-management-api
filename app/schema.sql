@@ -109,3 +109,14 @@ JOIN doctors d ON d.email = v.email
 WHERE NOT EXISTS (
     SELECT 1 FROM appointments a WHERE a.patient_id = p.id AND a.doctor_id = d.id
 );
+
+
+CREATE TABLE IF NOT EXISTS users(
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    full_name VARCHAR(100),
+    hashed_password TEXT NOT NULL,   -- Never store plain passwords
+    role VARCHAR(20) NOT NULL DEFAULT 'staff'
+        CHECK (role IN ('admin', 'staff')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

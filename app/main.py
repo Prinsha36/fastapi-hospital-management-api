@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager  #Handles startup and shutdown
 from fastapi import FastAPI #Creates our API application
 from app import database  # Imports our database connection functions.
-from app.routes import departments, doctors, patients, appointments
+from app.routes import auth, departments, doctors, patients, appointments
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):#Asynchronous context manager that handles the startup and shutdown of the API application.
@@ -17,6 +17,7 @@ app = FastAPI(
     lifespan = lifespan
 )
 
+app.include_router(auth.router)
 app.include_router(departments.router)
 app.include_router(doctors.router)
 app.include_router(patients.router)

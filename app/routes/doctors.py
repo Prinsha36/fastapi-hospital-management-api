@@ -1,6 +1,7 @@
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from app.routes.pagination import pagination
+from app.core.auth import get_current_user, require_admin
 from app.schemas.doctor import DoctorCreate, DoctorUpdate
 from app.services import doctor_service, appointment_service
 
@@ -36,7 +37,7 @@ async def get_doctor(doctor_id: int):
     return result
 
 
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, dependencies=[Depends(get_current_user)])
 async def create_doctor(doctor: DoctorCreate):
     result = await run_write(doctor_service.create_doctor(doctor), doctor)
     if result is None:
@@ -44,7 +45,7 @@ async def create_doctor(doctor: DoctorCreate):
     return result
 
 
-@router.put("/{doctor_id}")
+@router.put("/{doctor_id}", dependencies=[Depends(get_current_user)])
 async def update_doctor(doctor_id: int, doctor: DoctorCreate):
     result = await run_write(doctor_service.update_doctor(doctor_id, doctor), doctor)
     if result is None:
@@ -52,7 +53,7 @@ async def update_doctor(doctor_id: int, doctor: DoctorCreate):
     return result
 
 
-@router.patch("/{doctor_id}")
+@router.patch("/{doctor_id}", dependencies=[Depends(get_current_user)])
 async def patch_doctor(doctor_id: int, doctor: DoctorUpdate):
     result = await run_write(doctor_service.patch_doctor(doctor_id, doctor), doctor)
     if result is None:
@@ -60,7 +61,7 @@ async def patch_doctor(doctor_id: int, doctor: DoctorUpdate):
     return result
 
 
-@router.delete("/{doctor_id}")
+@router.delete("/{doctor_id}", dependencies=[Depends(require_admin)])
 async def delete_doctor(doctor_id: int):
     result = await doctor_service.delete_doctor(doctor_id)
     if result is None:

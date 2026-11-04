@@ -1,6 +1,7 @@
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from app.routes.pagination import pagination
+from app.core.auth import get_current_user, require_admin
 from app.schemas.department import DepartmentCreate, DepartmentUpdate
 from app.services import department_service, doctor_service
 
@@ -25,7 +26,7 @@ async def get_department(department_id: int):
     return result
 
 
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, dependencies=[Depends(get_current_user)])
 async def create_department(department: DepartmentCreate):
     try:
         result = await department_service.create_department(department)
@@ -36,7 +37,7 @@ async def create_department(department: DepartmentCreate):
     return result
 
 
-@router.put("/{department_id}")
+@router.put("/{department_id}", dependencies=[Depends(get_current_user)])
 async def update_department(department_id: int, department: DepartmentCreate):
     try:
         result = await department_service.update_department(department_id, department)
@@ -47,7 +48,7 @@ async def update_department(department_id: int, department: DepartmentCreate):
     return result
 
 
-@router.patch("/{department_id}")
+@router.patch("/{department_id}", dependencies=[Depends(get_current_user)])
 async def patch_department(department_id: int, department: DepartmentUpdate):
     try:
         result = await department_service.patch_department(department_id, department)
@@ -58,7 +59,7 @@ async def patch_department(department_id: int, department: DepartmentUpdate):
     return result
 
 
-@router.delete("/{department_id}")
+@router.delete("/{department_id}", dependencies=[Depends(require_admin)])
 async def delete_department(department_id: int):
     result = await department_service.delete_department(department_id)
     if result is None:

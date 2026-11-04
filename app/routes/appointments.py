@@ -4,6 +4,7 @@ from typing import Optional
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from app.routes.pagination import pagination
+from app.core.auth import get_current_user, require_admin
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate, Status
 from app.services import appointment_service
 
@@ -61,13 +62,13 @@ async def get_appointment(appointment_id: int):
     return result
 
 
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, dependencies=[Depends(get_current_user)])
 async def create_appointment(appointment: AppointmentCreate):
     appointment.appointment_time = check_time(appointment.appointment_time)
     return await run_write(appointment_service.create_appointment(appointment), appointment)
 
 
-@router.put("/{appointment_id}")
+@router.put("/{appointment_id}", dependencies=[Depends(get_current_user)])
 async def update_appointment(appointment_id: int, appointment: AppointmentCreate):
     appointment.appointment_time = check_time(appointment.appointment_time)
     result = await run_write(
@@ -78,7 +79,7 @@ async def update_appointment(appointment_id: int, appointment: AppointmentCreate
     return result
 
 
-@router.patch("/{appointment_id}")
+@router.patch("/{appointment_id}", dependencies=[Depends(get_current_user)])
 async def patch_appointment(appointment_id: int, appointment: AppointmentUpdate):
     appointment.appointment_time = check_time(appointment.appointment_time)
     result = await run_write(
@@ -89,7 +90,7 @@ async def patch_appointment(appointment_id: int, appointment: AppointmentUpdate)
     return result
 
 
-@router.delete("/{appointment_id}")
+@router.delete("/{appointment_id}", dependencies=[Depends(require_admin)])
 async def delete_appointment(appointment_id: int):
     result = await appointment_service.delete_appointment(appointment_id)
     if result is None:

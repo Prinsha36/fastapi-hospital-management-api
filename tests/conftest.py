@@ -21,6 +21,14 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402
 
 
+# Fixed names (not random): test files import this module too, and random
+# names would differ between the two copies.
+ADMIN_USERNAME = "pytest_admin"
+STAFF_USERNAME = "pytest_staff"
+TEST_USERS = {ADMIN_USERNAME: "admin", STAFF_USERNAME: "staff"}
+TEST_PASSWORD = "test-password-123"
+
+
 def unique(text: str) -> str:
     # Adds a random suffix so tests never clash with real data or each other.
     return f"{text} {uuid.uuid4().hex[:8]}"
@@ -43,9 +51,41 @@ def client():
             await conn.close()
         asyncio.run(create_tables())
 
+    # Create a temporary admin and staff user for the tests.
+    from app.core.security import create_access_token, hash_password
+
+    async def run(query, *args):
+        conn = await asyncpg.connect(os.environ["DATABASE_URL"])
+        try:
+            await conn.execute(query, *args)
+        finally:
+            await conn.close()
+
+    for username, role in TEST_USERS.items():
+        asyncio.run(run(
+            """INSERT INTO users (username, hashed_password, role) VALUES ($1, $2, $3)
+               ON CONFLICT (username) DO UPDATE SET hashed_password = $2, role = $3""",
+            username, hash_password(TEST_PASSWORD), role,
+        ))
+
     # "with" runs the app's startup (connect DB) and shutdown (close DB).
     with TestClient(app) as test_client:
+        # Every request is sent as the admin unless a test passes other headers.
+        admin_token = create_access_token(ADMIN_USERNAME, "admin")
+        test_client.headers["Authorization"] = f"Bearer {admin_token}"
         yield test_client
+
+    asyncio.run(run("DELETE FROM users WHERE username = ANY($1::text[])", list(TEST_USERS)))
+
+
+@pytest.fixture(scope="session")
+def staff_headers(client):
+    from app.core.security import create_access_token
+    return {"Authorization": f"Bearer {create_access_token(STAFF_USERNAME, 'staff')}"}
+
+
+# Send this to make a request with no login.
+NO_AUTH = {"Authorization": ""}
 
 
 @pytest.fixture
