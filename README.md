@@ -15,7 +15,8 @@ A REST API for managing hospital data: departments, doctors, patients and appoin
 - **Pagination** on every list endpoint (`?limit=20&offset=0`)
 - **Clear error messages**, for example `409 Department 'Cardiology' already exists`
 - **Automatic API docs** with Swagger UI
-- **45 automated tests** with pytest
+- **Input validation**: phone, email, blood group, gender and date of birth are checked and cleaned up
+- **73 automated tests** with pytest
 
 ## Tech Stack
 
@@ -292,6 +293,24 @@ PATCH /appointments/1
 | 409 | Duplicate | Department name or doctor email already used, doctor already booked |
 | 422 | Invalid request body | Missing field, wrong date format, invalid status |
 
+## Validation Rules
+
+Invalid input returns **422** with a message naming the field. Some values are cleaned up automatically.
+
+| Field | Rule | Cleaned up |
+|---|---|---|
+| Names | 2–100 characters, not blank | Extra spaces trimmed |
+| Phone | 7–15 digits, optional leading `+` | `+977 980-000-0001` → `+9779800000001` |
+| Email | Valid format, e.g. `name@hospital.com` | |
+| Blood group | `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-` | `ab+` → `AB+` |
+| Gender | `Male`, `Female`, `Other` | `female` → `Female` |
+| Date of birth | Not in the future, not before 1900 | |
+| IDs | Positive numbers | |
+| Username | 3–50 letters, numbers, `_` or `.` | |
+| Password | 6–128 characters | |
+
+All rules live in [`app/schemas/common.py`](app/schemas/common.py).
+
 ## Database Rules
 
 - Department names and doctor emails must be unique.
@@ -318,4 +337,4 @@ TEST_DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/hospital_test
 
 - [x] Staff login with JWT authentication
 - [ ] Response models for cleaner API docs
-- [ ] Stricter validation (phone, email, blood group)
+- [x] Stricter validation (phone, email, blood group)

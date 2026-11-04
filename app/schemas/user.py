@@ -1,14 +1,15 @@
 from datetime import datetime
 from typing import Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from app.schemas.common import Name, Password, Username
 
 Role = Literal["admin", "staff"]
 
 
 class UserCreate(BaseModel):
-    username: str = Field(min_length=3, max_length=50)
-    password: str = Field(min_length=6)
-    full_name: Optional[str] = None
+    username: Username          # letters, numbers, _ and . only
+    password: Password          # 6 to 128 characters
+    full_name: Optional[Name] = None
     role: Role = "staff"
 
 
