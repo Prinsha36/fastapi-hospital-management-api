@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager  #Handles startup and shutdown
 from fastapi import FastAPI #Creates our API application
 from app import database  # Imports our database connection functions.
-from app.routes import auth, departments, doctors, patients, appointments
+from app.routes import auth, departments, doctors, patients, appointments, emergency
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):#Asynchronous context manager that handles the startup and shutdown of the API application.
@@ -22,6 +22,7 @@ app.include_router(departments.router)
 app.include_router(doctors.router)
 app.include_router(patients.router)
 app.include_router(appointments.router)
+app.include_router(emergency.router)
 
 @app.get("/")
 async def home (): # Creares  a GET endpoint at the root URL ("/") of the API application.

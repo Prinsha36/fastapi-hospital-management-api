@@ -11,12 +11,17 @@ A REST API for managing hospital data: departments, doctors, patients and appoin
   - A doctor can't be double-booked at the same time
   - Appointments can't be booked in the past
   - Cancelling an appointment frees the time slot
+- **Emergency department**: register walk-in patients and treat the most serious first
+  - Triage levels: `critical`, `urgent`, `less_urgent`, `non_urgent`
+  - A live queue sorted by triage level, then arrival time
+  - Unknown patients (e.g. unconscious) can be registered by description and identified later
+  - Only Emergency Medicine doctors can take a case
 - **Staff login with JWT**: reading is open, changing data needs a login, deleting needs an admin
 - **Pagination** on every list endpoint (`?limit=20&offset=0`)
 - **Clear error messages**, for example `409 Department 'Cardiology' already exists`
 - **Automatic API docs** with Swagger UI
 - **Input validation**: phone, email, blood group, gender and date of birth are checked and cleaned up
-- **73 automated tests** with pytest
+- **92 automated tests** with pytest
 
 ## Tech Stack
 
@@ -47,6 +52,7 @@ A REST API for managing hospital data: departments, doctors, patients and appoin
 │   │   ├── doctors.py
 │   │   ├── patients.py
 │   │   ├── appointments.py
+│   │   ├── emergency.py
 │   │   └── pagination.py    # Shared limit/offset parameters
 │   ├── schemas/             # Pydantic models for request bodies
 │   └── services/            # SQL queries
@@ -112,7 +118,7 @@ python -c "import secrets; print(secrets.token_hex(32))"
 psql "postgresql://USER:PASSWORD@localhost:5432/hospital_db" -f app/schema.sql
 ```
 
-This creates all tables and adds sample departments, doctors, patients and appointments. It is safe to run again; existing data is skipped.
+This creates all tables and adds sample departments, doctors, patients, appointments and emergency cases. It is safe to run again; existing data is skipped.
 
 ### 6. Run the server
 
@@ -229,6 +235,25 @@ Tokens expire after `ACCESS_TOKEN_EXPIRE_MINUTES` (60 by default). Log in again 
 | PATCH | `/appointments/{id}` | Update some fields, e.g. cancel |
 | DELETE | `/appointments/{id}` | Delete an appointment |
 
+### Emergency
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/emergency/` | List all cases, newest first (filter by `status`, `triage_level`, `patient_id`, `doctor_id`) |
+| GET | `/emergency/queue` | Patients waiting to be seen, most serious first |
+| GET | `/emergency/{id}` | Get one case |
+| POST | `/emergency/` | Register an arriving patient |
+| PATCH | `/emergency/{id}` | Change triage level, complaint or patient while the case is open |
+| PATCH | `/emergency/{id}/assign` | Give the case to a doctor and start treatment |
+| PATCH | `/emergency/{id}/close` | Discharge, admit or transfer the patient |
+| DELETE | `/emergency/{id}` | Delete a case (admin only) |
+
+A case moves through these steps, and can't go backwards:
+
+```
+waiting  →  in_treatment  →  discharged / admitted / transferred
+```
+
 ### Pagination
 
 Every list endpoint accepts:
@@ -284,13 +309,38 @@ PATCH /appointments/1
 { "status": "cancelled" }
 ```
 
+**Register an emergency patient**
+
+```json
+POST /emergency/
+{
+  "patient_id": 1,
+  "complaint": "Severe chest pain",
+  "triage_level": "critical"
+}
+```
+
+For an unknown patient, send `patient_description` instead of `patient_id`, e.g. `"Unknown male, around 30"`. Link the real patient later with `PATCH /emergency/{id}` and `{"patient_id": 12}`.
+
+**Assign a doctor, then close the case**
+
+```json
+PATCH /emergency/1/assign
+{ "doctor_id": 10 }
+
+PATCH /emergency/1/close
+{ "outcome": "admitted", "notes": "Moved to cardiology ward" }
+```
+
+The doctor must be in the **Emergency Medicine** department, otherwise you get `400`. In the sample data that is Dr. Kiran Bhandari. Find their ID with `GET /departments/{id}/doctors` or `GET /doctors/`.
+
 ## Error Responses
 
 | Code | Meaning | Example |
 |---|---|---|
 | 400 | Invalid reference or rule broken | Department does not exist, appointment in the past |
 | 404 | Record not found | `Patient 99 not found` |
-| 409 | Duplicate | Department name or doctor email already used, doctor already booked |
+| 409 | Duplicate or wrong step | Department name or doctor email already used, doctor already booked, emergency case already closed |
 | 422 | Invalid request body | Missing field, wrong date format, invalid status |
 
 ## Validation Rules
@@ -317,6 +367,9 @@ All rules live in [`app/schemas/common.py`](app/schemas/common.py).
 - Deleting a department keeps its doctors; their `department_id` becomes empty.
 - Deleting a patient or doctor also deletes their appointments.
 - A doctor can't have two active appointments at the same time. Cancelled ones don't count.
+- A patient can only have one open emergency case at a time.
+- An emergency case needs either a patient or a description of an unknown patient.
+- Deleting a patient also deletes their emergency cases. Deleting a doctor keeps the case; its `doctor_id` becomes empty.
 
 ## Running Tests
 
@@ -338,3 +391,4 @@ TEST_DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/hospital_test
 - [x] Staff login with JWT authentication
 - [ ] Response models for cleaner API docs
 - [x] Stricter validation (phone, email, blood group)
+- [x] Emergency department with triage queue

@@ -120,3 +120,38 @@ CREATE TABLE IF NOT EXISTS users(
         CHECK (role IN ('admin', 'staff')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+CREATE TABLE IF NOT EXISTS emergency_cases(
+    id SERIAL PRIMARY KEY,
+    patient_id INTEGER REFERENCES patients(id) ON DELETE CASCADE,
+--  Can be empty when the patient is unknown (e.g. unconscious), then describe them instead
+    patient_description TEXT,
+    complaint TEXT NOT NULL,          -- What is wrong, e.g. "Chest pain"
+    triage_level VARCHAR(20) NOT NULL
+        CHECK (triage_level IN ('critical', 'urgent', 'less_urgent', 'non_urgent')),
+    status VARCHAR(20) NOT NULL DEFAULT 'waiting'
+        CHECK (status IN ('waiting', 'in_treatment', 'discharged', 'admitted', 'transferred')),
+    doctor_id INTEGER REFERENCES doctors(id) ON DELETE SET NULL,
+    notes TEXT,                       -- Written when the case is closed
+    arrived_at TIMESTAMP NOT NULL DEFAULT LOCALTIMESTAMP,
+    treated_at TIMESTAMP,             -- When a doctor first took the case
+    closed_at TIMESTAMP,              -- When the patient was discharged, admitted or transferred
+    CHECK (patient_id IS NOT NULL OR patient_description IS NOT NULL)
+);
+
+-- A patient can only have one open emergency case at a time.
+CREATE UNIQUE INDEX IF NOT EXISTS one_open_case_per_patient
+    ON emergency_cases (patient_id)
+    WHERE status IN ('waiting', 'in_treatment');
+
+-- Sample emergency cases waiting to be seen.
+INSERT INTO emergency_cases (patient_id, patient_description, complaint, triage_level)
+SELECT p.id, v.description, v.complaint, v.triage_level
+FROM (VALUES
+    ('9811000005', NULL, 'Severe chest pain and shortness of breath', 'critical'),
+    (NULL, 'Unknown male, around 30, brought in after road accident', 'Head injury, unconscious', 'critical'),
+    ('9811000002', NULL, 'Deep cut on hand', 'less_urgent')
+) AS v(phone, description, complaint, triage_level)
+LEFT JOIN patients p ON p.phone = v.phone
+WHERE NOT EXISTS (SELECT 1 FROM emergency_cases e WHERE e.complaint = v.complaint);
