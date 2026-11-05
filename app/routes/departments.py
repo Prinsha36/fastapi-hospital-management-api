@@ -2,7 +2,8 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from app.routes.pagination import pagination
 from app.core.auth import get_current_user, require_admin
-from app.schemas.department import DepartmentCreate, DepartmentUpdate
+from app.schemas.department import DepartmentCreate, DepartmentDeleted, DepartmentOut, DepartmentUpdate
+from app.schemas.doctor import DoctorOut
 from app.services import department_service, doctor_service
 
 # prefix="/departments": every endpoint here starts with /departments.
@@ -13,12 +14,12 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("/", response_model=list[DepartmentOut])
 async def get_departments(page: dict = Depends(pagination)):
     return await department_service.get_all_departments(**page)
 
 
-@router.get("/{department_id}")
+@router.get("/{department_id}", response_model=DepartmentOut)
 async def get_department(department_id: int):
     result = await department_service.get_department_by_id(department_id)
     if result is None:
@@ -26,7 +27,7 @@ async def get_department(department_id: int):
     return result
 
 
-@router.post("/", status_code=201, dependencies=[Depends(get_current_user)])
+@router.post("/", response_model=DepartmentOut, status_code=201, dependencies=[Depends(get_current_user)])
 async def create_department(department: DepartmentCreate):
     try:
         result = await department_service.create_department(department)
@@ -37,7 +38,7 @@ async def create_department(department: DepartmentCreate):
     return result
 
 
-@router.put("/{department_id}", dependencies=[Depends(get_current_user)])
+@router.put("/{department_id}", response_model=DepartmentOut, dependencies=[Depends(get_current_user)])
 async def update_department(department_id: int, department: DepartmentCreate):
     try:
         result = await department_service.update_department(department_id, department)
@@ -48,7 +49,7 @@ async def update_department(department_id: int, department: DepartmentCreate):
     return result
 
 
-@router.patch("/{department_id}", dependencies=[Depends(get_current_user)])
+@router.patch("/{department_id}", response_model=DepartmentOut, dependencies=[Depends(get_current_user)])
 async def patch_department(department_id: int, department: DepartmentUpdate):
     try:
         result = await department_service.patch_department(department_id, department)
@@ -59,7 +60,7 @@ async def patch_department(department_id: int, department: DepartmentUpdate):
     return result
 
 
-@router.delete("/{department_id}", dependencies=[Depends(require_admin)])
+@router.delete("/{department_id}", response_model=DepartmentDeleted, dependencies=[Depends(require_admin)])
 async def delete_department(department_id: int):
     result = await department_service.delete_department(department_id)
     if result is None:
@@ -70,7 +71,7 @@ async def delete_department(department_id: int):
     }
 
 
-@router.get("/{department_id}/doctors")
+@router.get("/{department_id}/doctors", response_model=list[DoctorOut])
 async def get_department_doctors(department_id: int):
     department = await department_service.get_department_by_id(department_id)
     if department is None:

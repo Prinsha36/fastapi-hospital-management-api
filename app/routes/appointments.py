@@ -5,7 +5,9 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from app.routes.pagination import pagination
 from app.core.auth import get_current_user, require_admin
-from app.schemas.appointment import AppointmentCreate, AppointmentUpdate, Status
+from app.schemas.appointment import (
+    AppointmentCreate, AppointmentDeleted, AppointmentOut, AppointmentUpdate, Status,
+)
 from app.services import appointment_service
 
 router = APIRouter(
@@ -42,7 +44,7 @@ async def run_write(action, appointment):
         raise HTTPException(status_code=400, detail=detail)
 
 
-@router.get("/")
+@router.get("/", response_model=list[AppointmentOut])
 async def get_appointments(
     patient_id: Optional[int] = None,
     doctor_id: Optional[int] = None,
@@ -54,7 +56,7 @@ async def get_appointments(
     return await appointment_service.get_appointments(patient_id, doctor_id, status, date, **page)
 
 
-@router.get("/{appointment_id}")
+@router.get("/{appointment_id}", response_model=AppointmentOut)
 async def get_appointment(appointment_id: int):
     result = await appointment_service.get_appointment_by_id(appointment_id)
     if result is None:
@@ -62,13 +64,13 @@ async def get_appointment(appointment_id: int):
     return result
 
 
-@router.post("/", status_code=201, dependencies=[Depends(get_current_user)])
+@router.post("/", response_model=AppointmentOut, status_code=201, dependencies=[Depends(get_current_user)])
 async def create_appointment(appointment: AppointmentCreate):
     appointment.appointment_time = check_time(appointment.appointment_time)
     return await run_write(appointment_service.create_appointment(appointment), appointment)
 
 
-@router.put("/{appointment_id}", dependencies=[Depends(get_current_user)])
+@router.put("/{appointment_id}", response_model=AppointmentOut, dependencies=[Depends(get_current_user)])
 async def update_appointment(appointment_id: int, appointment: AppointmentCreate):
     appointment.appointment_time = check_time(appointment.appointment_time)
     result = await run_write(
@@ -79,7 +81,7 @@ async def update_appointment(appointment_id: int, appointment: AppointmentCreate
     return result
 
 
-@router.patch("/{appointment_id}", dependencies=[Depends(get_current_user)])
+@router.patch("/{appointment_id}", response_model=AppointmentOut, dependencies=[Depends(get_current_user)])
 async def patch_appointment(appointment_id: int, appointment: AppointmentUpdate):
     appointment.appointment_time = check_time(appointment.appointment_time)
     result = await run_write(
@@ -90,7 +92,7 @@ async def patch_appointment(appointment_id: int, appointment: AppointmentUpdate)
     return result
 
 
-@router.delete("/{appointment_id}", dependencies=[Depends(require_admin)])
+@router.delete("/{appointment_id}", response_model=AppointmentDeleted, dependencies=[Depends(require_admin)])
 async def delete_appointment(appointment_id: int):
     result = await appointment_service.delete_appointment(appointment_id)
     if result is None:

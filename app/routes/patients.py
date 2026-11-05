@@ -2,7 +2,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from app.routes.pagination import pagination
 from app.core.auth import get_current_user, require_admin
-from app.schemas.patient import PatientCreate, PatientUpdate
+from app.schemas.appointment import AppointmentOut
+from app.schemas.patient import PatientCreate, PatientDeleted, PatientOut, PatientUpdate
 from app.services import patient_service, appointment_service
 
 router = APIRouter(
@@ -11,13 +12,13 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("/", response_model=list[PatientOut])
 async def get_patients(name: Optional[str] = None, page: dict = Depends(pagination)):
     # GET /patients/?name=aarav searches by name
     return await patient_service.get_all_patients(name, **page)
 
 
-@router.get("/{patient_id}")
+@router.get("/{patient_id}", response_model=PatientOut)
 async def get_patient(patient_id: int):
     result = await patient_service.get_patient_by_id(patient_id)
     if result is None:
@@ -25,7 +26,7 @@ async def get_patient(patient_id: int):
     return result
 
 
-@router.post("/", status_code=201, dependencies=[Depends(get_current_user)])
+@router.post("/", response_model=PatientOut, status_code=201, dependencies=[Depends(get_current_user)])
 async def create_patient(patient: PatientCreate):
     result = await patient_service.create_patient(patient)
     if result is None:
@@ -33,7 +34,7 @@ async def create_patient(patient: PatientCreate):
     return result
 
 
-@router.put("/{patient_id}", dependencies=[Depends(get_current_user)])
+@router.put("/{patient_id}", response_model=PatientOut, dependencies=[Depends(get_current_user)])
 async def update_patient(patient_id: int, patient: PatientCreate):
     result = await patient_service.update_patient(patient_id, patient)
     if result is None:
@@ -41,7 +42,7 @@ async def update_patient(patient_id: int, patient: PatientCreate):
     return result
 
 
-@router.patch("/{patient_id}", dependencies=[Depends(get_current_user)])
+@router.patch("/{patient_id}", response_model=PatientOut, dependencies=[Depends(get_current_user)])
 async def patch_patient(patient_id: int, patient: PatientUpdate):
     result = await patient_service.patch_patient(patient_id, patient)
     if result is None:
@@ -49,7 +50,7 @@ async def patch_patient(patient_id: int, patient: PatientUpdate):
     return result
 
 
-@router.delete("/{patient_id}", dependencies=[Depends(require_admin)])
+@router.delete("/{patient_id}", response_model=PatientDeleted, dependencies=[Depends(require_admin)])
 async def delete_patient(patient_id: int):
     result = await patient_service.delete_patient(patient_id)
     if result is None:
@@ -60,7 +61,7 @@ async def delete_patient(patient_id: int):
     }
 
 
-@router.get("/{patient_id}/appointments")
+@router.get("/{patient_id}/appointments", response_model=list[AppointmentOut])
 async def get_patient_appointments(patient_id: int):
     if await patient_service.get_patient_by_id(patient_id) is None:
         raise HTTPException(status_code=404, detail=f"Patient {patient_id} not found")

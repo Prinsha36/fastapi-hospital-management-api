@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager  #Handles startup and shutdown
 from fastapi import FastAPI #Creates our API application
+from pydantic import BaseModel
 from app import database  # Imports our database connection functions.
 from app.routes import auth, departments, doctors, patients, appointments, emergency
 
@@ -24,12 +25,23 @@ app.include_router(patients.router)
 app.include_router(appointments.router)
 app.include_router(emergency.router)
 
-@app.get("/")
+
+
+class HomeOut(BaseModel):
+    Message: str
+
+
+class HealthOut(BaseModel):
+    Status: str
+    Database: str
+
+
+@app.get("/", response_model=HomeOut)
 async def home (): # Creares  a GET endpoint at the root URL ("/") of the API application.
     return {"Message": "Welcome to the Hospital Management System API!"} # sends a JSON response 
 
 
-@app.get("/health") #Creates a health-check API.
+@app.get("/health", response_model=HealthOut) #Creates a health-check API.
 async def health_check(): # Creates a GET endpoint at the "/health" URL of the API
 
     result = await database.pool.fetchval("SELECT 1") #Executes SQL and returns a single value.

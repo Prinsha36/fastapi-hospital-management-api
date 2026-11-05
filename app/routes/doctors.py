@@ -2,7 +2,8 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from app.routes.pagination import pagination
 from app.core.auth import get_current_user, require_admin
-from app.schemas.doctor import DoctorCreate, DoctorUpdate
+from app.schemas.appointment import AppointmentOut
+from app.schemas.doctor import DoctorCreate, DoctorDeleted, DoctorOut, DoctorUpdate
 from app.services import doctor_service, appointment_service
 
 router = APIRouter(
@@ -24,12 +25,12 @@ async def run_write(action, doctor):
         )
 
 
-@router.get("/")
+@router.get("/", response_model=list[DoctorOut])
 async def get_doctors(page: dict = Depends(pagination)):
     return await doctor_service.get_all_doctors(**page)
 
 
-@router.get("/{doctor_id}")
+@router.get("/{doctor_id}", response_model=DoctorOut)
 async def get_doctor(doctor_id: int):
     result = await doctor_service.get_doctor_by_id(doctor_id)
     if result is None:
@@ -37,7 +38,7 @@ async def get_doctor(doctor_id: int):
     return result
 
 
-@router.post("/", status_code=201, dependencies=[Depends(get_current_user)])
+@router.post("/", response_model=DoctorOut, status_code=201, dependencies=[Depends(get_current_user)])
 async def create_doctor(doctor: DoctorCreate):
     result = await run_write(doctor_service.create_doctor(doctor), doctor)
     if result is None:
@@ -45,7 +46,7 @@ async def create_doctor(doctor: DoctorCreate):
     return result
 
 
-@router.put("/{doctor_id}", dependencies=[Depends(get_current_user)])
+@router.put("/{doctor_id}", response_model=DoctorOut, dependencies=[Depends(get_current_user)])
 async def update_doctor(doctor_id: int, doctor: DoctorCreate):
     result = await run_write(doctor_service.update_doctor(doctor_id, doctor), doctor)
     if result is None:
@@ -53,7 +54,7 @@ async def update_doctor(doctor_id: int, doctor: DoctorCreate):
     return result
 
 
-@router.patch("/{doctor_id}", dependencies=[Depends(get_current_user)])
+@router.patch("/{doctor_id}", response_model=DoctorOut, dependencies=[Depends(get_current_user)])
 async def patch_doctor(doctor_id: int, doctor: DoctorUpdate):
     result = await run_write(doctor_service.patch_doctor(doctor_id, doctor), doctor)
     if result is None:
@@ -61,7 +62,7 @@ async def patch_doctor(doctor_id: int, doctor: DoctorUpdate):
     return result
 
 
-@router.delete("/{doctor_id}", dependencies=[Depends(require_admin)])
+@router.delete("/{doctor_id}", response_model=DoctorDeleted, dependencies=[Depends(require_admin)])
 async def delete_doctor(doctor_id: int):
     result = await doctor_service.delete_doctor(doctor_id)
     if result is None:
@@ -72,7 +73,7 @@ async def delete_doctor(doctor_id: int):
     }
 
 
-@router.get("/{doctor_id}/appointments")
+@router.get("/{doctor_id}/appointments", response_model=list[AppointmentOut])
 async def get_doctor_appointments(doctor_id: int):
     if await doctor_service.get_doctor_by_id(doctor_id) is None:
         raise HTTPException(status_code=404, detail=f"Doctor {doctor_id} not found")

@@ -24,3 +24,22 @@ class AppointmentUpdate(BaseModel):
     appointment_time: Optional[datetime] = None
     reason: Optional[LongText] = None
     status: Optional[Status] = None
+
+
+class AppointmentOut(BaseModel):
+    # What the API returns for an appointment, with patient and doctor names.
+    id: int
+    appointment_time: datetime
+    reason: Optional[str] = None
+    status: Status
+    created_at: datetime
+    patient_id: int
+    patient_name: str
+    doctor_id: int
+    doctor_name: str
+    specialization: str
+
+
+class AppointmentDeleted(BaseModel):
+    message: str
+    appointment: AppointmentOut

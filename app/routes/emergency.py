@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.routes.pagination import pagination
 from app.core.auth import get_current_user, require_admin
 from app.schemas.emergency import (
-    CaseStatus, EmergencyAssign, EmergencyClose, EmergencyCreate, EmergencyUpdate, TriageLevel,
+    CaseStatus, EmergencyAssign, EmergencyCaseDeleted, EmergencyCaseOut, EmergencyClose,
+    EmergencyCreate, EmergencyUpdate, TriageLevel,
 )
 from app.services import emergency_service
 from app.services.emergency_service import EMERGENCY_DEPARTMENT
@@ -40,7 +41,7 @@ async def explain_failed_change(case_id: int, action: str):
     )
 
 
-@router.get("/")
+@router.get("/", response_model=list[EmergencyCaseOut])
 async def get_cases(
     status: Optional[CaseStatus] = None,
     triage_level: Optional[TriageLevel] = None,
@@ -52,13 +53,13 @@ async def get_cases(
     return await emergency_service.get_cases(status, triage_level, patient_id, doctor_id, **page)
 
 
-@router.get("/queue")
+@router.get("/queue", response_model=list[EmergencyCaseOut])
 async def get_queue(page: dict = Depends(pagination)):
     # Patients waiting to be seen: critical first, then by arrival time.
     return await emergency_service.get_queue(**page)
 
 
-@router.get("/{case_id}")
+@router.get("/{case_id}", response_model=EmergencyCaseOut)
 async def get_case(case_id: int):
     result = await emergency_service.get_case_by_id(case_id)
     if result is None:
@@ -66,13 +67,13 @@ async def get_case(case_id: int):
     return result
 
 
-@router.post("/", status_code=201, dependencies=[Depends(get_current_user)])
+@router.post("/", response_model=EmergencyCaseOut, status_code=201, dependencies=[Depends(get_current_user)])
 async def create_case(case: EmergencyCreate):
     # Registers a patient arriving at the emergency department.
     return await run_write(emergency_service.create_case(case), case.patient_id)
 
 
-@router.patch("/{case_id}", dependencies=[Depends(get_current_user)])
+@router.patch("/{case_id}", response_model=EmergencyCaseOut, dependencies=[Depends(get_current_user)])
 async def patch_case(case_id: int, case: EmergencyUpdate):
     # Change triage level, complaint or patient while the case is still open.
     result = await run_write(emergency_service.patch_case(case_id, case), case.patient_id)
@@ -81,7 +82,7 @@ async def patch_case(case_id: int, case: EmergencyUpdate):
     return result
 
 
-@router.patch("/{case_id}/assign", dependencies=[Depends(get_current_user)])
+@router.patch("/{case_id}/assign", response_model=EmergencyCaseOut, dependencies=[Depends(get_current_user)])
 async def assign_doctor(case_id: int, body: EmergencyAssign):
     # Gives the case to a doctor and starts treatment.
     if await emergency_service.get_case_by_id(case_id) is None:
@@ -102,7 +103,7 @@ async def assign_doctor(case_id: int, body: EmergencyAssign):
     return result
 
 
-@router.patch("/{case_id}/close", dependencies=[Depends(get_current_user)])
+@router.patch("/{case_id}/close", response_model=EmergencyCaseOut, dependencies=[Depends(get_current_user)])
 async def close_case(case_id: int, body: EmergencyClose):
     # Ends treatment: the patient is discharged, admitted or transferred.
     result = await emergency_service.close_case(case_id, body.outcome, body.notes)
@@ -111,7 +112,7 @@ async def close_case(case_id: int, body: EmergencyClose):
     return result
 
 
-@router.delete("/{case_id}", dependencies=[Depends(require_admin)])
+@router.delete("/{case_id}", response_model=EmergencyCaseDeleted, dependencies=[Depends(require_admin)])
 async def delete_case(case_id: int):
     result = await emergency_service.delete_case(case_id)
     if result is None:

@@ -19,9 +19,9 @@ A REST API for managing hospital data: departments, doctors, patients and appoin
 - **Staff login with JWT**: reading is open, changing data needs a login, deleting needs an admin
 - **Pagination** on every list endpoint (`?limit=20&offset=0`)
 - **Clear error messages**, for example `409 Department 'Cardiology' already exists`
-- **Automatic API docs** with Swagger UI
+- **Automatic API docs** with Swagger UI, showing the exact response for every endpoint
 - **Input validation**: phone, email, blood group, gender and date of birth are checked and cleaned up
-- **92 automated tests** with pytest
+- **101 automated tests** with pytest
 
 ## Tech Stack
 
@@ -54,7 +54,7 @@ A REST API for managing hospital data: departments, doctors, patients and appoin
 │   │   ├── appointments.py
 │   │   ├── emergency.py
 │   │   └── pagination.py    # Shared limit/offset parameters
-│   ├── schemas/             # Pydantic models for request bodies
+│   ├── schemas/             # Pydantic models for requests and responses
 │   └── services/            # SQL queries
 ├── tests/                   # pytest tests
 ├── .env.example             # Template for environment variables
@@ -66,7 +66,7 @@ Each feature is split into three layers:
 
 - **routes**: receive the request and return the response
 - **services**: talk to the database
-- **schemas**: define and validate what the request body must look like
+- **schemas**: define and validate what the request body must look like, and what each response contains (the `...Out` models)
 
 ## Getting Started
 
@@ -389,6 +389,6 @@ TEST_DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/hospital_test
 ## Roadmap
 
 - [x] Staff login with JWT authentication
-- [ ] Response models for cleaner API docs
+- [x] Response models for cleaner API docs
 - [x] Stricter validation (phone, email, blood group)
 - [x] Emergency department with triage queue

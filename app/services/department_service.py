@@ -53,7 +53,7 @@ RETURNING id, name, description, created_at
 async def delete_department(department_id: int):
     query = """
 DELETE FROM departments WHERE id = $1
-RETURNING id, name, description
+RETURNING id, name, description, created_at
 """
     row = await database.pool.fetchrow(query, department_id)
     return dict(row) if row else None

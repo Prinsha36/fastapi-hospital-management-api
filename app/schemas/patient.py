@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel
 from app.schemas.common import BirthDate, BloodGroup, Email, Gender, LongText, Name, Phone
@@ -23,3 +24,21 @@ class PatientUpdate(BaseModel):
     email: Optional[Email] = None
     address: Optional[LongText] = None
     blood_group: Optional[BloodGroup] = None
+
+
+class PatientOut(BaseModel):
+    # What the API returns for a patient.
+    id: int
+    name: str
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    blood_group: Optional[str] = None
+    created_at: datetime
+
+
+class PatientDeleted(BaseModel):
+    message: str
+    patient: PatientOut

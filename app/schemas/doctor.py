@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 from app.schemas.common import Email, Id, Name, Phone, ShortText
@@ -19,3 +20,19 @@ class DoctorUpdate(BaseModel):
     phone: Optional[Phone] = None
     email: Optional[Email] = None
     department_id: Optional[Id] = None
+
+
+class DoctorOut(BaseModel):
+    # What the API returns for a doctor.
+    id: int
+    name: str
+    specialization: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    department_id: Optional[int] = None
+    created_at: datetime
+
+
+class DoctorDeleted(BaseModel):
+    message: str
+    doctor: DoctorOut

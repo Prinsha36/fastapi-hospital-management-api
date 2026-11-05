@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal, Optional
 from pydantic import BaseModel, model_validator
 from app.schemas.common import Id, LongText
@@ -45,3 +46,26 @@ class EmergencyAssign(BaseModel):
 class EmergencyClose(BaseModel):
     outcome: Outcome
     notes: Optional[LongText] = None   # e.g. "Stitched, follow up in 1 week"
+
+
+class EmergencyCaseOut(BaseModel):
+    # What the API returns for an emergency case.
+    id: int
+    triage_level: TriageLevel
+    status: CaseStatus
+    complaint: str
+    notes: Optional[str] = None
+    patient_id: Optional[int] = None        # Empty for an unknown patient
+    patient_name: Optional[str] = None
+    patient_description: Optional[str] = None
+    doctor_id: Optional[int] = None         # Empty until a doctor is assigned
+    doctor_name: Optional[str] = None
+    arrived_at: datetime
+    treated_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
+    wait_minutes: int                       # Minutes waited before treatment (or so far)
+
+
+class EmergencyCaseDeleted(BaseModel):
+    message: str
+    emergency_case: EmergencyCaseOut
