@@ -1,0 +1,41 @@
+# Starts the API and its PostgreSQL database together.
+#   docker compose up --build      start everything
+#   docker compose down            stop
+#   docker compose down -v         stop and delete all database data
+#
+# Needs SECRET_KEY in your .env file (see .env.example).
+
+services:
+  db:
+    image: docker.io/library/postgres:17-alpine
+    environment:
+      POSTGRES_USER: hospital
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hospital}
+      POSTGRES_DB: hospital_db
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Creates the tables and sample data the first time the database starts.
+      - ./app/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro,Z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hospital -d hospital_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      # "db" is the database service above, not localhost.
+      DATABASE_URL: postgresql://hospital:${POSTGRES_PASSWORD:-hospital}@db:5432/hospital_db
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your .env file}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy   # Waits until PostgreSQL is ready
+    restart: unless-stopped
+
+volumes:
+  db_data:

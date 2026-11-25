@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager  #Handles startup and shutdown
+from pathlib import Path
 from fastapi import FastAPI #Creates our API application
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from app import database  # Imports our database connection functions.
-from app.routes import auth, departments, doctors, patients, appointments, emergency
+from app.routes import auth, departments, doctors, patients, appointments, emergency, gemini
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):#Asynchronous context manager that handles the startup and shutdown of the API application.
@@ -24,7 +27,19 @@ app.include_router(doctors.router)
 app.include_router(patients.router)
 app.include_router(appointments.router)
 app.include_router(emergency.router)
+app.include_router(gemini.router)
 
+app.mount(
+    "/ui",
+    StaticFiles(directory=Path(__file__).resolve().parents[1] / "frontend", html=True),
+    name="frontend",
+)
+
+
+@app.get("/test-ui", include_in_schema=False)
+@app.get("/test-ui/", include_in_schema=False)
+async def legacy_test_ui():
+    return RedirectResponse("/ui/#emergency", status_code=307)
 
 
 class HomeOut(BaseModel):

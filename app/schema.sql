@@ -155,3 +155,7 @@ FROM (VALUES
 ) AS v(phone, description, complaint, triage_level)
 LEFT JOIN patients p ON p.phone = v.phone
 WHERE NOT EXISTS (SELECT 1 FROM emergency_cases e WHERE e.complaint = v.complaint);
+
+
+
+

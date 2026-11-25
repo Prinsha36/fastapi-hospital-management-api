@@ -2,6 +2,21 @@
 
 A REST API for managing hospital data: departments, doctors, patients and appointments. Built with **FastAPI** and **PostgreSQL**, using raw SQL through `asyncpg`.
 
+## Recent Changes
+
+- Verified the Compose build with Podman and bound the API port to localhost for local development.
+- Switched Gemini chat and its test endpoint to Gemini 3.6 Flash after Google returned 503 for Gemini 3.8 Flash.
+
+- Gemini chat uses low thinking effort for faster replies and reports connection and response timeouts separately.
+- Gemini chat checks server configuration before enabling Send and shows setup instructions when the key is missing.
+- Added Docker Compose setup for the API and PostgreSQL, with automatic schema and sample-data initialization on a fresh database volume.
+- Added MedOps, a browser workspace at `/ui/` for patients, appointments, emergency triage, doctors, departments, and staff accounts. The old `/test-ui/` URL opens the emergency view.
+- Added explicit response models across the API so Swagger UI shows the response fields and types for each endpoint.
+
+Keep this section up to date when a change affects API behavior, database setup, or developer workflows. See the [AI engineering role](AI_ENGINEER_ROLE.md) for project-specific development and verification instructions.
+
+Track open design and workflow improvements in the [design gaps checklist](DESIGN_GAPS.md).
+
 ## Features
 
 - **Departments**: create, list, update and delete hospital departments
@@ -16,6 +31,7 @@ A REST API for managing hospital data: departments, doctors, patients and appoin
   - A live queue sorted by triage level, then arrival time
   - Unknown patients (e.g. unconscious) can be registered by description and identified later
   - Only Emergency Medicine doctors can take a case
+- **Gemini AI test and chat**: administrators can test Gemini connectivity or chat with recent conversation context
 - **Staff login with JWT**: reading is open, changing data needs a login, deleting needs an admin
 - **Pagination** on every list endpoint (`?limit=20&offset=0`)
 - **Clear error messages**, for example `409 Department 'Cardiology' already exists`
@@ -56,8 +72,13 @@ A REST API for managing hospital data: departments, doctors, patients and appoin
 │   │   └── pagination.py    # Shared limit/offset parameters
 │   ├── schemas/             # Pydantic models for requests and responses
 │   └── services/            # SQL queries
+├── frontend/                # HTML, CSS, and JavaScript for the browser workspace
 ├── tests/                   # pytest tests
+├── AI_ENGINEER_ROLE.md      # Project instructions for AI-assisted development
+├── .dockerignore            # Excludes local files from the Docker build context
 ├── .env.example             # Template for environment variables
+├── Dockerfile               # Image for the API
+├── docker-compose.yml       # Runs the API and PostgreSQL together
 ├── pytest.ini
 └── requirements.txt
 ```
@@ -68,7 +89,38 @@ Each feature is split into three layers:
 - **services**: talk to the database
 - **schemas**: define and validate what the request body must look like, and what each response contains (the `...Out` models)
 
-## Getting Started
+## Quick Start with Docker
+
+Run the API and PostgreSQL locally with Docker and Docker Compose.
+
+With Podman and a Compose provider installed, use `podman compose` in place of `docker compose`. The API is available on localhost port 8000.
+
+```bash
+git clone https://github.com/Prinsha36/fastapi-hospital-management-api.git
+cd fastapi-hospital-management-api
+
+cp .env.example .env
+# Edit .env and set SECRET_KEY (generate one with the command below)
+openssl rand -hex 32
+
+docker compose up --build
+```
+
+Open http://127.0.0.1:8000/docs and follow the [first admin account instructions](#7-create-the-first-admin-account). Compose sets the API's database URL automatically. Set `POSTGRES_PASSWORD` in `.env` to override the local default when initializing a fresh database.
+
+Open the [MedOps workspace](http://127.0.0.1:8000/ui/) in your browser. The frontend is served by FastAPI on the same origin and requires no separate build or development server.
+
+| Command | What it does |
+|---|---|
+| `docker compose up --build` | Start the API and database |
+| `docker compose down` | Stop them (data is kept) |
+| `docker compose down -v` | Stop and delete all database data |
+| `docker compose exec api pytest` | Run the tests inside the container |
+| `docker compose logs -f api` | Watch the API logs |
+
+The database persists in a Docker volume. PostgreSQL runs `app/schema.sql` when it initializes an empty volume. Apply schema changes separately on an existing database. The volume reset command above is for disposable local data.
+
+## Getting Started (without Docker)
 
 ### 1. Prerequisites
 
@@ -104,13 +156,18 @@ Edit `.env` and fill in your PostgreSQL username and password, plus a secret key
 DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/hospital_db
 SECRET_KEY=your-long-random-secret
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+GEMINI_API_KEY=your-gemini-api-key
 ```
+
+Gemini chat requires a real Gemini API key in `.env`. After adding it, restart Uvicorn or run `docker compose up -d api` to apply the updated container environment.
 
 Generate a secret key with:
 
 ```bash
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
+
+The admin-only `POST /gemini/test` endpoint sends a short prompt to `gemini-3.6-flash` and returns the model name and generated text. The MedOps **Gemini chat** view at `/ui/#gemini-chat` supports multi-turn conversations; `/gemini/chat` sends up to 12 recent messages as context. Try either endpoint from `/docs` after signing in as an admin. The API key remains server-side; it is never returned in responses. Use synthetic, non-sensitive prompts only: Google may use free-tier prompts to improve its products.
 
 ### 5. Create the tables and sample data
 
@@ -128,6 +185,8 @@ uvicorn app.main:app --reload
 
 Open **http://127.0.0.1:8000/docs** to see and try every endpoint.
 
+Open **http://127.0.0.1:8000/ui/** for the browser workspace.
+
 ### 7. Create the first admin account
 
 The first account can be created without logging in, and it automatically becomes an **admin**:
@@ -142,6 +201,8 @@ POST /auth/register
 ```
 
 After that, only a logged-in admin can create more accounts.
+
+The browser workspace also supports first-time setup through **Sign in** → **Set up first admin**. Staff can create and edit records. Admins can also delete records and manage staff accounts.
 
 ## Authentication
 
@@ -392,3 +453,4 @@ TEST_DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/hospital_test
 - [x] Response models for cleaner API docs
 - [x] Stricter validation (phone, email, blood group)
 - [x] Emergency department with triage queue
+- [x] Docker setup
